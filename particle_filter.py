@@ -68,7 +68,7 @@ class robot(object):
 		"""Computes pose increment
 		
 		Note1: assumes odometry is <translation in direction of heading, previous heading, change in heading>
-		Note2: assumes robot pose is a 3x1 numpy matrix
+		Note2: assumes robot pose is a 3x1 numpy matrix <x, y, heading>
 		http://www.mrpt.org/tutorials/programming/odometry-and-motion-models/probabilistic_motion_models/"""
 		# Split up odometry for clarity of code
 		trans, rot1, rot2 = odometry
@@ -82,7 +82,7 @@ class robot(object):
 		drot2 = rot2 + np.random.normal(0, sigma_rot2)
 		# Create shape-enforced matrices
 		odometry_vec = np.matrix([[dtrans],[drot1],[drot2]])
-		rotation_matrix = np.matrix([[np.cos(drot1),0,0],[np.sin(drot1),0,0],[0,0,1]])
+		rotation_matrix = np.matrix([[np.cos(drot1),0,0],[np.sin(drot1),0,0],[0,1,1]])
 		# Compute new robot pose
 		return robot_pose + np.dot(rotation_matrix,odometry_vec)
 
