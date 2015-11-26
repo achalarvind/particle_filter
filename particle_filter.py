@@ -63,10 +63,28 @@ class robot(object):
 		self._alpha4 = configuration['alpha4']
 		self._min_std_xy = configuration['min_std_xy']
 		self._min_std_theta = configuration['min_std_theta']
-
-	def move(self, robot_pose, odometry):	#TODO:motion model. http://www.mrpt.org/tutorials/programming/odometry-and-motion-models/probabilistic_motion_models/
-		print odometry
-		return np.dot(robot_pose, np.identity(3))
+		
+	def move(self, robot_pose, odometry):
+		"""Computes pose increment
+		
+		Note1: assumes odometry is <translation in direction of heading, previous heading, change in heading>
+		Note2: assumes robot pose is a 3x1 numpy matrix
+		http://www.mrpt.org/tutorials/programming/odometry-and-motion-models/probabilistic_motion_models/"""
+		# Split up odometry for clarity of code
+		trans, rot1, rot2 = odometry
+		# Compute standard deviations of measurements
+		sigma_trans = self.alpha3*trans + self._alpha4(np.abs(rot1)+np.abs(rot2))
+		sigma_rot1 = self._alpha1*np.abs(rot1) + self._alpha2*trans
+		sigma_rot2 = self._alpha1*np.abs(rot2) + self._alpha2*trans
+		# Add zero-mean Gaussian noise to odometry measurements?
+		dtrans = trans + np.random.normal(0, sigma_trans)
+		drot1 = rot1 + np.random.normal(0, sigma_rot1)
+		drot2 = rot2 + np.random.normal(0, sigma_rot2)
+		# Create shape-enforced matrices
+		odometry_vec = np.matrix([[dtrans],[drot1],[drot2]])
+		rotation_matrix = np.matrix([[np.cos(drot1),0,0],[np.sin(drot1),0,0],[0,0,1]])
+		# Compute new robot pose
+		return robot_pose + np.dot(rotation_matrix,odometry_vec)
 
 	def sense(self, robot_pose):	#TODO:sensor model. Ray tracing to the nearest occupied space. Note that the occupancy grid is actually unoccupancy
 		print robot_pose
