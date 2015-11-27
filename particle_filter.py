@@ -115,12 +115,13 @@ class robot(object):
         point_ranges = occupancy_grid[point_pose_x, point_pose_y]
         point_ranges[:, -1] = 1
 
-        z_star = np.array([np.where(ranges > 0)[0] for ranges in point_ranges], dtype=int) 
+        z_star = np.array([np.where(ranges > 0.01)[0][0] for ranges in point_ranges], dtype=int) 
+        print(z_star)
 
         plt.clf()
         plt.imshow(point_ranges)
         plt.gray()
-        plt.scatter(point_pose_x[:, z_star], point_pose_y[:, z_star], s=1, color=[1,0,0], alpha=0.5)
+        plt.scatter(z_star, np.array(range(0, 180)), s=1, color=[1,0,0], alpha=0.5)
 
         plt.draw()
         plt.show(block=True) 
