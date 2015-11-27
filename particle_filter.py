@@ -13,6 +13,7 @@ path=path[0]
 ENVIRONMENT_FILE = 'wean.dat'
 ROBOT_LOG = 'robotdata1.log'
 
+plt.ion()
 class localization_test(object):
     def __init__(self, test_filter, env_file, robot_log_file):
         # get environemnt information and robot log
@@ -48,11 +49,11 @@ class localization_test(object):
             self.visualize()
 
     def visualize(self):
+        plt.clf()
         plt.imshow(self._occupancy_grid, interpolation='nearest')
         plt.gray()
         plt.scatter(self._filter._particles[:,0], self._filter._particles[:,1], s=1, color=[1,0,0], alpha=0.5)
-        plt.show(block=False)
-            
+        plt.draw()
 
 class robot(object):
     def __init__(self, configuration_file):
@@ -82,16 +83,14 @@ class robot(object):
         sigma_rot1 = self._alpha1*np.abs(rot1) + self._alpha2*trans
         sigma_rot2 = self._alpha1*np.abs(rot2) + self._alpha2*trans
         # Add zero-mean Gaussian noise to odometry measurements?
-        if sigma_trans > 0:
-            trans -= np.random.normal(0, sigma_trans**2,1)
-        if sigma_rot1 > 0:
-            rot1 -= np.random.normal(0, sigma_rot1**2,1)
-        if sigma_rot2 > 0:
-            rot2 -= np.random.normal(0, sigma_rot2**2,1)
+        trans -= np.random.normal(0, sigma_trans**2,1) if sigma_trans > 0 else 0
+        rot1 -= np.random.normal(0, sigma_rot1**2,1) if sigma_rot1 > 0 else 0
+        rot2 -= np.random.normal(0, sigma_rot2**2,1) if sigma_rot2 > 0 else 0
         # Compute new robot pose
         new_pose = np.array([robot_pose[0] + trans*np.cos(robot_pose[2]+rot1),
                              robot_pose[1] + trans*np.sin(robot_pose[2]+rot1),
                              robot_pose[2] + rot1 + rot2])
+        new_pose.shape = (3,)
         return new_pose
 
     def sense(self, robot_pose, sensor_reading, occupancy_grid):
