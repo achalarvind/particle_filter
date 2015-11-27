@@ -21,7 +21,9 @@ class localization_test(object):
         self._log = open(os.path.join(path, 'log', robot_log_file), 'r')
         [self._robot_spec, self._occupancy_grid] = read_log.read_map(self._enviroment)
         self._filter = particle_filter('configuration.json', self._occupancy_grid)
-        self._occupancy_grid = self._occupancy_grid.T
+
+        self._occupancy_grid = 1 - self._occupancy_grid 
+        self._occupancy_grid[self._occupancy_grid > 1.1] = -1
 
         self._previous_robot_pose = None
 
@@ -98,8 +100,44 @@ class robot(object):
         return new_pose
 
     def sense(self, robot_pose, sensor_reading, occupancy_grid):
-        sensor_pose = np.array([robot_pose[0] + 30*np.cos(robot_pose[2]), robot_pose[1] + 30*np.sin(robot_pose[2]), robot_pose[2]])
-        q = 1.0
+        sensor_pose = np.array([robot_pose[0] + 25*np.cos(robot_pose[2]), robot_pose[1] + 25*np.sin(robot_pose[2]), robot_pose[2]])
+ 
+        point_pose_x = np.array(sensor_pose[0] + np.multiply(self._max_laser_reading, np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
+        point_pose_y = np.array(sensor_pose[1] + np.multiply(self._max_laser_reading, np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
+
+        point_pose_x = np.floor(np.array([np.linspace(miner, maxer, 900) for miner,maxer in zip(np.full_like(point_pose_x, sensor_pose[0]), point_pose_x)], dtype=int)/10)
+        point_pose_y = np.floor(np.array([np.linspace(miner, maxer, 900) for miner,maxer in zip(np.full_like(point_pose_y, sensor_pose[1]), point_pose_y)], dtype=int)/10)
+    
+        #mask = np.multiply(np.multiply(point_pose_x >=0, point_pose_x < 800), np.multiply(point_pose_y >= 0, point_pose_y < 800))
+        point_pose_x = np.array(np.clip(point_pose_x, 0, 799), dtype=int)
+        point_pose_y = np.array(np.clip(point_pose_y, 0, 799), dtype=int)
+            
+        point_ranges = occupancy_grid[point_pose_x, point_pose_y]
+        point_ranges[:, -1] = 1
+
+        z_star = np.array([np.where(ranges > 0)[0] for ranges in point_ranges], dtype=int) 
+
+        plt.clf()
+        plt.imshow(point_ranges)
+        plt.gray()
+        plt.scatter(point_pose_x[:, z_star], point_pose_y[:, z_star], s=1, color=[1,0,0], alpha=0.5)
+
+        plt.draw()
+        plt.show(block=True) 
+
+    
+
+
+
+
+
+
+
+
+
+
+
+"""       q = 1.0
         z_hit = 0.95
         z_rand = 0.05
 
@@ -109,14 +147,14 @@ class robot(object):
                          sensor_pose[1] + np.multiply(np.array(sensor_reading), np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0))])
         point_pose = np.array(np.floor(point_pose/10), dtype=int)
         good_range = np.multiply(np.multiply(point_pose[0, :] >= 0, point_pose[0, :] < 800), np.multiply(point_pose[1, :] >= 0, point_pose[1, :] < 800))
+   
         good_data  = np.multiply(np.array(sensor_reading) < self._max_laser_reading, good_range)
         scores = occupancy_grid[point_pose[0, good_data], point_pose[1, good_data]]
-  
         scores[scores < 0] = 0
         q = np.prod(z_hit*(1-scores) + z_rand)
-        
+        print q    
         return q
-
+"""
 
 class particle_filter(object):
     def __init__(self, configuration_file, occupancy_grid):
@@ -133,7 +171,7 @@ class particle_filter(object):
 
         while(num_good_particles < self._no_particles):
             particles = np.transpose(np.array([np.random.rand(self._no_particles)*8000, np.random.rand(self._no_particles)*8000, 2*np.pi*np.random.rand(self._no_particles)]))
-            good_points = occupancy_grid[np.array(np.floor(particles[:, 0]/10), dtype=int), np.array(np.floor(particles[:, 1]/10), dtype=int)] > 0.95
+            good_points = occupancy_grid[np.array(np.floor(particles[:, 0]/10), dtype=int), np.array(np.floor(particles[:, 1]/10), dtype=int)] == 1
             particles = particles[good_points, :]
             self._particles = np.append(self._particles, particles, 0)
             num_good_particles = self._particles.shape[0]
