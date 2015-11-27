@@ -45,6 +45,7 @@ class localization_test(object):
                     odometry = np.array([0.0, 0.0, 0.0])
                 else:
                     odometry = np.subtract(self._previous_robot_pose, robot_pose)
+                print(odometry)
                 self._filter.propogate(odometry)
             self.visualize()
 
@@ -54,6 +55,8 @@ class localization_test(object):
         plt.gray()
         plt.scatter(self._filter._particles[:,0], self._filter._particles[:,1], s=1, color=[1,0,0], alpha=0.5)
         plt.draw()
+        mng = plt.get_current_fig_manager()
+        mng.window.showMaximized()
 
 class robot(object):
     def __init__(self, configuration_file):
