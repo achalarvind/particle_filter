@@ -5,6 +5,31 @@ import read_log
 from matplotlib import pyplot as plt
 import json
 from functools import partial
+import multiprocessing 
+
+
+def _pickle_method(method):
+    func_name = method.im_func.__name__
+    obj = method.im_self
+    cls = method.im_class
+    if func_name.startswith('__') and not func_name.endswith('__'): #deal with mangled names
+        cls_name = cls.__name__.lstrip('_')
+        func_name = '_' + cls_name + func_name
+    return _unpickle_method, (func_name, obj, cls)
+
+def _unpickle_method(func_name, obj, cls):
+    for cls in cls.__mro__:
+        try:
+            func = cls.__dict__[func_name]
+        except KeyError:
+            pass
+        else:
+            break
+    return func.__get__(obj, cls)
+
+import copy_reg
+import types
+copy_reg.pickle(types.MethodType, _pickle_method, _unpickle_method)
 
 global path
 path=os.path.split(os.path.realpath(__file__))
@@ -86,12 +111,13 @@ class robot(object):
         self._min_std_xy = configuration['min_std_xy']
         self._min_std_theta = configuration['min_std_theta']
         
-    def move(self, robot_pose, odometry):
+    def move(self, particle_no, temp_particles, odometry):
         """Computes pose increment
         
         Note1: assumes odometry is <dx, dy, dtheta>
         Note2: assumes robot pose is a 3x1 numpy array <x, y, heading>
         http://www.mrpt.org/tutorials/programming/odometry-and-motion-models/probabilistic_motion_models/"""
+        robot_pose = temp_particles[particle_no,:]
         # Transform odometry data from differences to sequential rot1, trans, rot2 motions
         dx,dy,dtheta = odometry
         trans = np.sqrt(dx**2 + dy**2)
@@ -112,8 +138,9 @@ class robot(object):
         new_pose.shape = (3,)
         return new_pose
 
-    def sense(self, robot_pose, sensor_reading, occupancy_grid):
+    def sense(self, particle_no, temp_particles, sensor_reading, occupancy_grid):
         num_interp = 900
+        robot_pose = temp_particles[particle_no,:]
 
         sensor_pose = np.array([robot_pose[0] + 25*np.cos(robot_pose[2]), robot_pose[1] + 25*np.sin(robot_pose[2]), robot_pose[2]])
 
@@ -209,15 +236,25 @@ class particle_filter(object):
 
     def propogate(self, odometry):
         print 'propogating'
-        move_function = partial(int, base=2)
-        self._particles = np.apply_along_axis(self._robot_model.move, 1, self._particles, odometry)
+        partial_move = partial(self._robot_model.move, temp_particles=self._particles, odometry=odometry)
+        pool = multiprocessing.Pool(processes=6)
+        print "no_robots",self._particles.shape[0]
+        self._particles = np.array(pool.map(partial_move, range(self._particles.shape[0])))
+        pool.close()
+        pool.join()
+
+        # self._particles = np.apply_along_axis(self._robot_model.move, 1, self._particles, odometry)
 
     def infer(self, sensor_reading, occupancy_grid):
         print 'infering'
         #print sensor_reading
-        
+        partial_sense = partial(self._robot_model.sense, temp_particles=self._particles, sensor_reading=sensor_reading, occupancy_grid=occupancy_grid)
+        pool = multiprocessing.Pool(processes=8)
+        particle_sensor_readings = list(pool.map(partial_sense, range(self._particles.shape[0])))
+        pool.close()
+        pool.join()
         #get sensor readings for each robot pose
-        particle_sensor_readings = np.apply_along_axis(self._robot_model.sense, 1, self._particles, sensor_reading, occupancy_grid) 
+        # particle_sensor_readings = np.apply_along_axis(self._robot_model.sense, 1, self._particles, sensor_reading, occupancy_grid) 
         # subtract the current sensor reading from the sensor readings of the particles, take the L2 norm and readjust weights
            
         particle_sensor_readings = particle_sensor_readings - np.min(particle_sensor_readings)
