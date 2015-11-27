@@ -112,7 +112,7 @@ class robot(object):
    
         good_scores = scores[scores > 0]
 
-        q = np.prod(z_hit*good_scores + z_rand)
+        q = np.prod(z_hit*(1-good_scores) + z_rand)
         
         return q
 
