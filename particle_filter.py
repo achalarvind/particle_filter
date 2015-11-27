@@ -101,17 +101,18 @@ class robot(object):
         z_rand = 0.05
 
         #Go through the sweep (lookup table method)
-        point_pose = np.floor(np.array(
-                        [[sensor_pose[0] + sense_dist*np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)],
-                         [sensor_pose[1] + sense_dist*np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)]])/10.0)
+        point_pose = np.array(np.floor(np.array(
+                        [sensor_pose[0] + sensor_reading*np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0),
+                         sensor_pose[1] + sensor_reading*np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)])/10), dtype=int)
         
-        good = np.dot((point_pose[0] >= 0 and point_pose[0] < 800), (point_pose[1] >= 0 and point_pose[1] < 800))
+
+        good_range = np.multiply(np.multiply(point_pose[0] >= 0, point_pose[0] < 800), np.multiply(point_pose[1] >= 0, point_pose[1] < 800))
+        good_data  = sensor_reading < self._max_laser_reading
+        scores = occupancy_grid[point_pose[0], point_pose[1]]
    
-            if(sense_dist >= self._max_laser_reading):
-                continue
-            if(occupancy_grid[point_pose[0], point_pose[1]] < 0):
-                continue
-            q = q * (z_hit*occupancy_grid[point_pose[0], point_pose[1]] + z_rand)
+        good_scores = scores[np.multiply(good_range, np.multiply(good_data, scores > 0))]
+
+        q = np.prod(z_hit*good_scores + z_rand)
         
         return q
 
@@ -136,6 +137,7 @@ class particle_filter(object):
         self._particles = np.apply_along_axis(self._robot_model.move, 1, self._particles, odometry)
 
     def infer(self, sensor_reading, occupancy_grid):
+        print 'infering'
         #print sensor_reading
         
         #get sensor readings for each robot pose
