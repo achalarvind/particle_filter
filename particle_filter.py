@@ -229,7 +229,26 @@ class particle_filter(object):
 
 
         self._weights = [1.0/self._no_particles]*self._no_particles
-
+        
+    def low_variance_resample(self):
+        weight_var = np.var(self._weights)
+        print 'Current weight variance:', weight_var
+        print 'Len weights:', len(self._weights)
+        print 'Len particles:', len(self._particles)
+        print 'Num particles:', self._no_particles
+        if weight_var > 0.5:
+            print('Resampling!')
+            newParticles = list()
+            r = np.random.rand(1)*self._no_particles
+            c = self._weights[0]
+            i = 0
+            for m in range(self._no_particles):
+                U = r + m*self._no_particles
+                while U > c:
+                    i += 1
+                    c += self._weights[i]
+                newParticles.append(self._particles[i])
+            self._particles = np.array(newParticles)
     # def resample(self):
     #   if np.var(self._weights)<self._resample_theshold:
     #       self._particles = self._particles[np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)]
@@ -258,14 +277,14 @@ class particle_filter(object):
         # subtract the current sensor reading from the sensor readings of the particles, take the L2 norm and readjust weights
            
         particle_sensor_readings = particle_sensor_readings - np.min(particle_sensor_readings)
-        print particle_sensor_readings
-
-        self._weights = particle_sensor_readings  #np.divide(1.0, np.linalg.norm(np.subtract(particle_sensor_readings, sensor_reading), axis = 1))
-        normalization_factor = sum(self._weights)
-        self._weights = [float(weight)/normalization_factor for weight in self._weights]
-
+        #print particle_sensor_readings
+        self._weights = particle_sensor_readings/np.sum(particle_sensor_readings)
+        print 'weights:',self._weights
         # get new particles by sampling the new distibution of weights
         self._particles = self._particles[np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)]
+        
+        # Resample if needed
+        self.low_variance_resample()
 
 
 if __name__ == '__main__':
