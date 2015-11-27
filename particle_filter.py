@@ -21,6 +21,8 @@ class localization_test(object):
         self._log = open(os.path.join(path, 'log', robot_log_file), 'r')
         [self._robot_spec, self._occupancy_grid] = read_log.read_map(self._enviroment)
         self._filter = particle_filter('configuration.json', self._occupancy_grid)
+        self._occupancy_grid = self._occupancy_grid.T
+
         self._previous_robot_pose = None
 
     def parse_log(self, log_line):
@@ -54,7 +56,7 @@ class localization_test(object):
         plt.clf()
         plt.imshow(self._occupancy_grid, interpolation='nearest')
         plt.gray()
-        plt.scatter(self._filter._particles[:,1]/10, self._filter._particles[:,0]/10, s=1, color=[1,0,0], alpha=0.5)
+        plt.scatter(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, s=1, color=[1,0,0], alpha=0.5)
         plt.draw()
 
 class robot(object):
@@ -106,15 +108,12 @@ class robot(object):
                         [sensor_pose[0] + np.multiply(np.array(sensor_reading), np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)),
                          sensor_pose[1] + np.multiply(np.array(sensor_reading), np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0))])
         point_pose = np.array(np.floor(point_pose/10), dtype=int)
-
         good_range = np.multiply(np.multiply(point_pose[0, :] >= 0, point_pose[0, :] < 800), np.multiply(point_pose[1, :] >= 0, point_pose[1, :] < 800))
-        good_data  = np.multiply(sensor_reading < self._max_laser_reading, good_range)
-        
+        good_data  = np.multiply(np.array(sensor_reading) < self._max_laser_reading, good_range)
         scores = occupancy_grid[point_pose[0, good_data], point_pose[1, good_data]]
-   
-        good_scores = scores[scores > 0]
-
-        q = np.prod(z_hit*(1-good_scores) + z_rand)
+  
+        scores[scores < 0] = 0
+        q = np.prod(z_hit*(1-scores) + z_rand)
         
         return q
 
@@ -130,11 +129,11 @@ class particle_filter(object):
         #Gotta get them all in the good areas
         
         num_good_particles = 0
-        self._particles = np.empty([3, 3])
+        self._particles = np.empty([0, 3])
 
         while(num_good_particles < self._no_particles):
             particles = np.transpose(np.array([np.random.rand(self._no_particles)*8000, np.random.rand(self._no_particles)*8000, 2*np.pi*np.random.rand(self._no_particles)]))
-            good_points = occupancy_grid[np.array(np.floor(particles[:, 0]/10), dtype=int), np.array(np.floor(particles[:, 1]/10), dtype=int)] > 0.9
+            good_points = occupancy_grid[np.array(np.floor(particles[:, 0]/10), dtype=int), np.array(np.floor(particles[:, 1]/10), dtype=int)] > 0.95
             particles = particles[good_points, :]
             self._particles = np.append(self._particles, particles, 0)
             num_good_particles = self._particles.shape[0]
@@ -159,7 +158,6 @@ class particle_filter(object):
         
         #get sensor readings for each robot pose
         particle_sensor_readings = np.apply_along_axis(self._robot_model.sense, 1, self._particles, sensor_reading, occupancy_grid) 
-        print particle_sensor_readings
         # subtract the current sensor reading from the sensor readings of the particles, take the L2 norm and readjust weights
         self._weights = particle_sensor_readings  #np.divide(1.0, np.linalg.norm(np.subtract(particle_sensor_readings, sensor_reading), axis = 1))
         normalization_factor = sum(self._weights)
