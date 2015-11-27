@@ -3,9 +3,14 @@
     "alpha2": 0.001, 
     "alpha3": 5, 
     "alpha4": 0.05, 
+    "z_hit": 0.85,
+    "z_max": 0.07,
+    "z_rand": 0.08,
+    "z_short": 0.00,
+    "z_sigma": 6,
     "max_laser_reading": 8183, 
     "min_std_theta": 0.2, 
     "min_std_xy": 0.01, 
-    "particle_count": 10000, 
+    "particle_count": 100, 
     "resample_threshold": 0.7
 }
