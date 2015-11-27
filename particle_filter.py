@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import sys
 import read_log
 from matplotlib import pyplot as plt
 import json
@@ -74,20 +75,23 @@ class robot(object):
         # Transform odometry data from differences to sequential rot1, trans, rot2 motions
         dx,dy,dtheta = odometry
         trans = np.sqrt(dx**2 + dy**2)
-        rot1 = np.atan2(dy,dx) - dtheta
+        rot1 = np.arctan2(dy,dx) - dtheta
         rot2 = dtheta - rot1
         # Compute standard deviations of measurements
-        sigma_trans = self._alpha3*trans + self._alpha4(np.abs(rot1)+np.abs(rot2))
+        sigma_trans = self._alpha3*trans + self._alpha4*(np.abs(rot1)+np.abs(rot2))
         sigma_rot1 = self._alpha1*np.abs(rot1) + self._alpha2*trans
         sigma_rot2 = self._alpha1*np.abs(rot2) + self._alpha2*trans
         # Add zero-mean Gaussian noise to odometry measurements?
-        dtrans = trans - np.random.normal(0, sigma_trans)
-        drot1 = rot1 - np.random.normal(0, sigma_rot1)
-        drot2 = rot2 - np.random.normal(0, sigma_rot2)
+        if sigma_trans > 0:
+            trans -= np.random.normal(0, sigma_trans**2,1)
+        if sigma_rot1 > 0:
+            rot1 -= np.random.normal(0, sigma_rot1**2,1)
+        if sigma_rot2 > 0:
+            rot2 -= np.random.normal(0, sigma_rot2**2,1)
         # Compute new robot pose
-        new_pose = np.array([robot_pose[0] + dtrans*np.cos(robot_pose[2]+drot1),
-                             robot_pose[1] + dtrans*np.sin(robot_pose[2]+drot1),
-                             robot_pose[2] + drot1 + drot2])
+        new_pose = np.array([robot_pose[0] + trans*np.cos(robot_pose[2]+rot1),
+                             robot_pose[1] + trans*np.sin(robot_pose[2]+rot1),
+                             robot_pose[2] + rot1 + rot2])
         return new_pose
 
     def sense(self, robot_pose, sensor_reading, occupancy_grid):
