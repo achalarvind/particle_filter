@@ -58,7 +58,7 @@ class localization_test(object):
         plt.clf()
         plt.imshow(self._occupancy_grid, interpolation='nearest')
         plt.gray()
-        plt.scatter(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, s=1, color=[1,0,0], alpha=0.5)
+        plt.scatter(self._filter._particles[:,1]/10, self._filter._particles[:,0]/10, s=1, color=[1,0,0], alpha=0.5)
         plt.draw()
 
 class robot(object):
