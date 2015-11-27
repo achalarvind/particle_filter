@@ -106,10 +106,11 @@ class robot(object):
         
 
         good_range = np.multiply(np.multiply(point_pose[0] >= 0, point_pose[0] < 800), np.multiply(point_pose[1] >= 0, point_pose[1] < 800))
-        good_data  = sensor_reading < self._max_laser_reading
-        scores = occupancy_grid[point_pose[0], point_pose[1]]
+        good_data  = np.multiply(sensor_reading < self._max_laser_reading, good_range)
+        
+        scores = occupancy_grid[point_pose[0][good_data], point_pose[1][good_data]]
    
-        good_scores = scores[np.multiply(good_range, np.multiply(good_data, scores > 0))]
+        good_scores = scores[scores > 0]
 
         q = np.prod(z_hit*good_scores + z_rand)
         
