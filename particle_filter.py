@@ -49,7 +49,7 @@ class localization_test(object):
         plt.imshow(self._occupancy_grid, interpolation='nearest')
         plt.gray()
         plt.scatter(self._filter._particles[:,0], self._filter._particles[:,1], s=1, color=[1,0,0], alpha=0.5)
-        plt.show()
+        plt.show(block=False)
             
 
 class robot(object):
@@ -87,19 +87,17 @@ class robot(object):
         return new_pose
 
     def sense(self, robot_pose, sensor_reading, occupancy_grid):
-        return robot_pose
         sensor_pose = np.array([robot_pose[0] + 30*np.cos(robot_pose[2]), robot_pose[1] + 30*np.sin(robot_pose[2]), robot_pose[2]])
         q = 1.0
         z_hit = 0.95
         z_rand = 0.05
-        return q
 
         #Go through the sweep (lookup table method)
         for index, sense_dist in enumerate(sensor_reading):
             point_pose = np.floor(np.array([sensor_pose[0] + sense_dist*np.cos(sensor_pose[2] + np.pi*(index-90.0)/180.0), sensor_pose[1] + sense_dist*np.sin(sensor_pose[2] + np.pi*((index - 90.0)/180.0))]))
-            if(point_pose[0] < 0 or point_pose[0] > 8000):
+            if(point_pose[0] < 0 or point_pose[0] > 800):
                 continue
-            if(point_pose[1] < 0 or point_pose[1] > 8000):
+            if(point_pose[1] < 0 or point_pose[1] > 800):
                 continue
             if(sense_dist >= self._max_laser_reading):
                 continue
@@ -107,10 +105,7 @@ class robot(object):
                 continue
             q = q * (z_hit*occupancy_grid[point_pose[0], point_pose[1]] + z_rand)
         
-
-
-
-
+        return q
 
 
 class particle_filter(object):
