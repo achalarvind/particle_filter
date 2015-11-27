@@ -44,6 +44,7 @@ class localization_test(object):
                 else:
                     odometry = np.subtract(self._previous_robot_pose, robot_pose)
                 self._filter.propogate(odometry)
+            self.visualize()
 
     def visualize(self):
         plt.imshow(self._occupancy_grid, interpolation='nearest')
@@ -94,7 +95,7 @@ class robot(object):
 
         #Go through the sweep (lookup table method)
         for index, sense_dist in enumerate(sensor_reading):
-            point_pose = np.floor(np.array([sensor_pose[0] + sense_dist*np.cos(sensor_pose[2] + np.pi*(index-90.0)/180.0), sensor_pose[1] + sense_dist*np.sin(sensor_pose[2] + np.pi*((index - 90.0)/180.0))]))
+            point_pose = np.floor(np.array([sensor_pose[0] + sense_dist*np.cos(sensor_pose[2] + np.pi*(index-90.0)/180.0), sensor_pose[1] + sense_dist*np.sin(sensor_pose[2] + np.pi*((index - 90.0)/180.0))])/10.0)
             if(point_pose[0] < 0 or point_pose[0] > 800):
                 continue
             if(point_pose[1] < 0 or point_pose[1] > 800):
@@ -134,7 +135,7 @@ class particle_filter(object):
         particle_sensor_readings = np.apply_along_axis(self._robot_model.sense, 1, self._particles, sensor_reading, occupancy_grid) 
 
         # subtract the current sensor reading from the sensor readings of the particles, take the L2 norm and readjust weights
-        self._weights = np.divide(1.0, np.linalg.norm(np.subtract(particle_sensor_readings, sensor_reading), axis = 1))
+        self._weights = particle_sensor_readings  #np.divide(1.0, np.linalg.norm(np.subtract(particle_sensor_readings, sensor_reading), axis = 1))
         normalization_factor = sum(self._weights)
         self._weights = [float(weight)/normalization_factor for weight in self._weights]
 
