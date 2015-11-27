@@ -79,8 +79,8 @@ class robot(object):
         
         self._z_hit_norm = 1/(np.sum((1/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(range(-100, 101))**2)/self._z_sigma**2)))
 
-        #Making a lookup table for the sensor!
-       # np.empty([self._max_laser_reading/10, self._max_laser_reading+1]
+        self._num_interp = 900
+        self._linspace_array = np.mat(np.linspace(0, 1, self._num_interp))
 
 
         self._min_std_xy = configuration['min_std_xy']
@@ -117,16 +117,13 @@ class robot(object):
 
         sensor_pose = np.array([robot_pose[0] + 25*np.cos(robot_pose[2]), robot_pose[1] + 25*np.sin(robot_pose[2]), robot_pose[2]])
 
-        point_pose_x = np.array(sensor_pose[0] + np.multiply(self._max_laser_reading, np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
-        point_pose_y = np.array(sensor_pose[1] + np.multiply(self._max_laser_reading, np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
-
-        point_pose_x = np.floor(np.array([np.linspace(miner, maxer, num_interp) for miner,maxer in zip(np.full_like(point_pose_x, sensor_pose[0]), point_pose_x)], dtype=int)/10)
-        point_pose_y = np.floor(np.array([np.linspace(miner, maxer, num_interp) for miner,maxer in zip(np.full_like(point_pose_y, sensor_pose[1]), point_pose_y)], dtype=int)/10)
-    
+        point_pose_x = np.array(np.multiply(self._max_laser_reading, np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
+        point_pose_y = np.array(np.multiply(self._max_laser_reading, np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
+   
+        point_pose_x = np.clip(np.array(((np.mat(point_pose_x).T)*self._linspace_array + sensor_pose[0])/10, dtype=int), 0, 799)
+        point_pose_y = np.clip(np.array(((np.mat(point_pose_y).T)*self._linspace_array + sensor_pose[1])/10, dtype=int), 0, 799)
+  
         #mask = np.multiply(np.multiply(point_pose_x >=0, point_pose_x < 800), np.multiply(point_pose_y >= 0, point_pose_y < 800))
-        point_pose_x = np.array(np.clip(point_pose_x, 0, 799), dtype=int)
-        point_pose_y = np.array(np.clip(point_pose_y, 0, 799), dtype=int)
-            
         point_ranges = occupancy_grid[point_pose_x, point_pose_y]
         point_ranges[:, -1] = 1
 
@@ -142,13 +139,13 @@ class robot(object):
 
    #     print(z_star)
 
-    #    plt.clf()
-    #    plt.imshow(point_ranges)
-     #   plt.gray()
-      #  plt.scatter(z_star, np.array(range(0, 180)), s=1, color=[1,0,0], alpha=0.5)
+       # plt.clf()
+       # plt.imshow(point_ranges)
+       # plt.gray()
+       # plt.scatter(z_star, np.array(range(0, 180)), s=1, color=[1,0,0], alpha=0.5)
 
-#        plt.draw()
- #       plt.show(block=True) 
+        #plt.draw()
+        #plt.show(block=True) 
 
     
         return np.sum(np.log(weights))
