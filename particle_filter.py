@@ -97,12 +97,12 @@ class robot(object):
         z_rand = 0.05
 
         #Go through the sweep (lookup table method)
-        for index, sense_dist in enumerate(sensor_reading):
-            point_pose = np.floor(np.array([sensor_pose[0] + sense_dist*np.cos(sensor_pose[2] + np.pi*(index-90.0)/180.0), sensor_pose[1] + sense_dist*np.sin(sensor_pose[2] + np.pi*((index - 90.0)/180.0))])/10.0)
-            if(point_pose[0] < 0 or point_pose[0] > 800):
-                continue
-            if(point_pose[1] < 0 or point_pose[1] > 800):
-                continue
+        point_pose = np.floor(np.array(
+                        [[sensor_pose[0] + sense_dist*np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)],
+                         [sensor_pose[1] + sense_dist*np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)]])/10.0)
+        
+        good = np.dot((point_pose[0] >= 0 and point_pose[0] < 800), (point_pose[1] >= 0 and point_pose[1] < 800))
+   
             if(sense_dist >= self._max_laser_reading):
                 continue
             if(occupancy_grid[point_pose[0], point_pose[1]] < 0):
