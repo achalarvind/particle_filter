@@ -70,6 +70,15 @@ class robot(object):
         self._alpha2 = configuration['alpha2']
         self._alpha3 = configuration['alpha3']
         self._alpha4 = configuration['alpha4']
+
+        self._z_hit  = configuration['z_hit']
+        self._z_rand = configuration['z_rand']
+        self._z_short= configuration['z_short']
+        self._z_max  = configuration['z_max']
+        self._z_sigma= configuration['z_sigma']
+        
+        self._z_hit_norm = 1/(np.sum((1/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(range(-100, 101))**2)/self._z_sigma**2)))
+
         self._min_std_xy = configuration['min_std_xy']
         self._min_std_theta = configuration['min_std_theta']
         
@@ -100,8 +109,10 @@ class robot(object):
         return new_pose
 
     def sense(self, robot_pose, sensor_reading, occupancy_grid):
+        num_interp = 900
+
         sensor_pose = np.array([robot_pose[0] + 25*np.cos(robot_pose[2]), robot_pose[1] + 25*np.sin(robot_pose[2]), robot_pose[2]])
- 
+
         point_pose_x = np.array(sensor_pose[0] + np.multiply(self._max_laser_reading, np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
         point_pose_y = np.array(sensor_pose[1] + np.multiply(self._max_laser_reading, np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
 
@@ -116,18 +127,27 @@ class robot(object):
         point_ranges[:, -1] = 1
 
         z_star = np.array([np.where(ranges > 0.01)[0][0] for ranges in point_ranges], dtype=int) 
-        print(z_star)
 
-        plt.clf()
-        plt.imshow(point_ranges)
-        plt.gray()
-        plt.scatter(z_star, np.array(range(0, 180)), s=1, color=[1,0,0], alpha=0.5)
+        z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star*10-np.array(sensor_reading))**2)/self._z_sigma**2))
+        z_short = np.full_like(z_star, 0) #not implimented atm
+        z_max = np.array(np.array(sensor_reading) == self._max_laser_reading, dtype=int)
+        z_rand = np.full_like(z_star, 1/self._max_laser_reading)
 
-        plt.draw()
-        plt.show(block=True) 
+        weights = np.array(self._z_hit*z_hit + self._z_short*z_short + self._z_max*z_max + self._z_rand*z_rand)
+
+
+   #     print(z_star)
+
+    #    plt.clf()
+    #    plt.imshow(point_ranges)
+     #   plt.gray()
+      #  plt.scatter(z_star, np.array(range(0, 180)), s=1, color=[1,0,0], alpha=0.5)
+
+#        plt.draw()
+ #       plt.show(block=True) 
 
     
-
+        return np.prod(weights)
 
 
 
