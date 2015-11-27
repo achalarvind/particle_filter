@@ -79,6 +79,10 @@ class robot(object):
         
         self._z_hit_norm = 1/(np.sum((1/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(range(-100, 101))**2)/self._z_sigma**2)))
 
+        #Making a lookup table for the sensor!
+       # np.empty([self._max_laser_reading/10, self._max_laser_reading+1]
+
+
         self._min_std_xy = configuration['min_std_xy']
         self._min_std_theta = configuration['min_std_theta']
         
@@ -116,8 +120,8 @@ class robot(object):
         point_pose_x = np.array(sensor_pose[0] + np.multiply(self._max_laser_reading, np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
         point_pose_y = np.array(sensor_pose[1] + np.multiply(self._max_laser_reading, np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
 
-        point_pose_x = np.floor(np.array([np.linspace(miner, maxer, 900) for miner,maxer in zip(np.full_like(point_pose_x, sensor_pose[0]), point_pose_x)], dtype=int)/10)
-        point_pose_y = np.floor(np.array([np.linspace(miner, maxer, 900) for miner,maxer in zip(np.full_like(point_pose_y, sensor_pose[1]), point_pose_y)], dtype=int)/10)
+        point_pose_x = np.floor(np.array([np.linspace(miner, maxer, num_interp) for miner,maxer in zip(np.full_like(point_pose_x, sensor_pose[0]), point_pose_x)], dtype=int)/10)
+        point_pose_y = np.floor(np.array([np.linspace(miner, maxer, num_interp) for miner,maxer in zip(np.full_like(point_pose_y, sensor_pose[1]), point_pose_y)], dtype=int)/10)
     
         #mask = np.multiply(np.multiply(point_pose_x >=0, point_pose_x < 800), np.multiply(point_pose_y >= 0, point_pose_y < 800))
         point_pose_x = np.array(np.clip(point_pose_x, 0, 799), dtype=int)
@@ -129,11 +133,11 @@ class robot(object):
         z_star = np.array([np.where(ranges > 0.01)[0][0] for ranges in point_ranges], dtype=int) 
 
         z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star*10-np.array(sensor_reading))**2)/self._z_sigma**2))
-        z_short = np.full_like(z_star, 0) #not implimented atm
+        z_short = np.full_like(z_star, 0, dtype=float) #not implimented atm
         z_max = np.array(np.array(sensor_reading) == self._max_laser_reading, dtype=int)
-        z_rand = np.full_like(z_star, 1/self._max_laser_reading)
+        z_rand = np.full_like(z_star, 1.0/self._max_laser_reading, dtype=float)
 
-        weights = np.array(self._z_hit*z_hit + self._z_short*z_short + self._z_max*z_max + self._z_rand*z_rand)
+        weights = np.array(self._z_hit*z_hit + self._z_short*z_short + self._z_max*z_max + self._z_rand*z_rand, dtype=float)
 
 
    #     print(z_star)
@@ -147,7 +151,7 @@ class robot(object):
  #       plt.show(block=True) 
 
     
-        return np.prod(weights)
+        return np.sum(np.log(weights))
 
 
 
@@ -218,6 +222,10 @@ class particle_filter(object):
         #get sensor readings for each robot pose
         particle_sensor_readings = np.apply_along_axis(self._robot_model.sense, 1, self._particles, sensor_reading, occupancy_grid) 
         # subtract the current sensor reading from the sensor readings of the particles, take the L2 norm and readjust weights
+           
+        particle_sensor_readings = particle_sensor_readings - np.min(particle_sensor_readings)
+        print particle_sensor_readings
+
         self._weights = particle_sensor_readings  #np.divide(1.0, np.linalg.norm(np.subtract(particle_sensor_readings, sensor_reading), axis = 1))
         normalization_factor = sum(self._weights)
         self._weights = [float(weight)/normalization_factor for weight in self._weights]
