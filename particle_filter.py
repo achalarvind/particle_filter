@@ -62,7 +62,9 @@ class localization_test(object):
             return ['E',[]]
 
     def run_test(self,):
-        for line in self._log:
+        total_length = 2281 # length of log1
+        for index, line in enumerate(self._log):
+            print '{0}/{1} log line'.format(index,total_length)
             parsed_data = self.parse_log(line)
             if parsed_data[0] == 'L':
                 [robot_pose, laser_pose, laser_data] = parsed_data[1:]
@@ -75,7 +77,7 @@ class localization_test(object):
                 else:
                     odometry = np.subtract(self._previous_robot_pose, robot_pose)
                     self._previous_robot_pose = robot_pose
-                print(odometry)
+                print 'odometry:', odometry
                 self._filter.propogate(odometry)
             self.visualize()
 
@@ -162,29 +164,7 @@ class robot(object):
         z_rand = np.full_like(z_star, 1.0/self._max_laser_reading, dtype=float)
 
         weights = np.array(self._z_hit*z_hit + self._z_short*z_short + self._z_max*z_max + self._z_rand*z_rand, dtype=float)
-
-
-   #     print(z_star)
-
-       # plt.clf()
-       # plt.imshow(point_ranges)
-       # plt.gray()
-       # plt.scatter(z_star, np.array(range(0, 180)), s=1, color=[1,0,0], alpha=0.5)
-
-        #plt.draw()
-        #plt.show(block=True) 
-
-    
         return np.sum(np.log(weights))
-
-
-
-
-
-
-
-
-
 
 """       q = 1.0
         z_hit = 0.95
@@ -233,9 +213,7 @@ class particle_filter(object):
     def low_variance_resample(self):
         weight_var = np.var(self._weights)
         print 'Current weight variance:', weight_var
-        print 'Len weights:', len(self._weights)
-        print 'Len particles:', len(self._particles)
-        print 'Num particles:', self._no_particles
+        print 'Len Weights: {0}, Len particles: {1}, Num particles: {2}'.format(len(self._weights),len(self._particles),self._no_particles)
         if weight_var > 0.5:
             print('Resampling!')
             newParticles = list()
@@ -256,7 +234,7 @@ class particle_filter(object):
     def propogate(self, odometry):
         print 'propogating'
         partial_move = partial(self._robot_model.move, temp_particles=self._particles, odometry=odometry)
-        pool = multiprocessing.Pool(processes=6)
+        pool = multiprocessing.Pool(processes=8)
         print "no_robots",self._particles.shape[0]
         self._particles = np.array(pool.map(partial_move, range(self._particles.shape[0])))
         pool.close()
