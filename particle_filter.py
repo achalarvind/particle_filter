@@ -139,7 +139,6 @@ class robot(object):
         return new_pose
 
     def sense(self, particle_no, temp_particles, sensor_reading, occupancy_grid):
-        num_interp = 900
         robot_pose = temp_particles[particle_no,:]
 
         sensor_pose = np.array([robot_pose[0] + 25*np.cos(robot_pose[2]), robot_pose[1] + 25*np.sin(robot_pose[2]), robot_pose[2]])
@@ -155,6 +154,7 @@ class robot(object):
         point_ranges[:, -1] = 1
 
         z_star = np.array([np.where(ranges > 0.01)[0][0] for ranges in point_ranges], dtype=int) 
+        z_star = (8183.0*z_star)/self._num_interp
 
         z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star*10-np.array(sensor_reading))**2)/self._z_sigma**2))
         z_short = np.full_like(z_star, 0, dtype=float) #not implimented atm

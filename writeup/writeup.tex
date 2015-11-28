@@ -14,7 +14,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Approach}
-	blah
+	Our approach is to use a Monte Carlo Localization (MCL), which is an application of the particle filter algorithm. This requires a motion model for the robot as well as a sensor model for the laser range finder. It utilizes an array of randomized poses (particles) for the robot. This group is propagated using the odometery values and the motion model, where the sensor data is applied to determine the likelyhood. This likelyhood is used to weight each particle, and then resample with repleacement a new set from the old. THis method removes badly weighted particles, allowing the entire set to converge towards the optimum solution. It also means that the higher weighted points will appear more than once, allowing for the distributions contained in the motion model more samples (and thus a better spread). 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Results}
