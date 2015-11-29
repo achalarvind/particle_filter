@@ -2,12 +2,19 @@ import numpy as np
 import os
 import sys
 import read_log
-from matplotlib import pyplot as plt
 import json
 from functools import partial
 import multiprocessing 
 
-
+create_movies = True
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+if create_movies:
+    import matplotlib.animation as manimation
+    fig = plt.figure(0)
+    writer = manimation.FFMpegWriter(fps=10)
+    
 def _pickle_method(method):
     func_name = method.im_func.__name__
     obj = method.im_self
@@ -83,10 +90,15 @@ class localization_test(object):
 
     def visualize(self):
         plt.clf()
-        plt.imshow(self._occupancy_grid, interpolation='nearest')
+        plt.imshow(self._occupancy_grid.T, interpolation='nearest')
         plt.gray()
-        plt.scatter(self._filter._particles[:,1]/10, self._filter._particles[:,0]/10, s=1, color=[1,0,0], alpha=0.5)
+        plt.scatter(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, s=1, color=[1,0,0], alpha=0.5)
+        #plt.quiver(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, np.cos(self._filter._particles[:,2]), np.sin(self._filter._particles[:,2]),
+        #   units='xy', scale=10., zorder=3, color='blue',
+        #zs   width=0.007, headwidth=3., headlength=4.)
         plt.draw()
+        if create_movies:
+            writer.grab_frame()
 
 class robot(object):
     def __init__(self, configuration_file):
@@ -207,11 +219,11 @@ class particle_filter(object):
 
         self._particles = self._particles[:, :self._no_particles]
 
-
+ 
         self._weights = [1.0/self._no_particles]*self._no_particles
         
     def low_variance_resample(self):
-        weight_var = np.var(self._weights)
+        weight_var = np.var(self._weights, dtype=np.float64)
         print 'Current weight variance:', weight_var
         print 'Len Weights: {0}, Len particles: {1}, Num particles: {2}'.format(len(self._weights),len(self._particles),self._no_particles)
         if weight_var > 0.5:
@@ -266,7 +278,11 @@ class particle_filter(object):
 
 
 if __name__ == '__main__':
+    if create_movies:
+        writer.setup(fig, 'animation_particle_filter.mp4', 100)
     test_object = localization_test(ENVIRONMENT_FILE, ROBOT_LOG)
     test_object.visualize()
     test_object.run_test()
+    if create_movies:
+        writer.finish()
     # filter_object.imshow()
