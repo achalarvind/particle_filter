@@ -8,7 +8,8 @@ import multiprocessing
 
 create_movies = True
 import matplotlib
-matplotlib.use('Agg')
+if create_movies:
+    matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 if create_movies:
     import matplotlib.animation as manimation
@@ -168,7 +169,7 @@ class robot(object):
         point_ranges[:, -1] = 1
 
         z_star = np.array([np.where(ranges > 0.01)[0][0] for ranges in point_ranges], dtype=int) 
-        z_star = (8183.0*z_star)/self._num_interp
+        z_star = (self._max_laser_reading*z_star)/self._num_interp
 
         z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star*10-np.array(sensor_reading))**2)/self._z_sigma**2))
         z_short = np.full_like(z_star, 0, dtype=float) #not implimented atm
@@ -217,7 +218,7 @@ class particle_filter(object):
             self._particles = np.append(self._particles, particles, 0)
             num_good_particles = self._particles.shape[0]
 
-        self._particles = self._particles[:, :self._no_particles]
+        self._particles = self._particles[:self._no_particles, :]
 
  
         self._weights = [1.0/self._no_particles]*self._no_particles
