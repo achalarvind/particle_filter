@@ -192,7 +192,7 @@ class particle_filter(object):
             configuration = json.load(cfg_file)
         self._robot_model = robot(configuration_file)
         self._no_particles = configuration['particle_count']
-        self._resample_theshold = configuration['resample_threshold']
+        self._resample_period = configuration['resample_period']
         self._iterations = 0
 
         #Gotta get them all in the good areas
@@ -208,26 +208,24 @@ class particle_filter(object):
             num_good_particles = self._particles.shape[0]
 
         self._particles = self._particles[:self._no_particles, :]
-
- 
         self._weights = [1.0/self._no_particles]*self._no_particles
         
-    def low_variance_resample(self):
-        weight_var = np.var(self._weights, dtype=np.float64)
-        print 'Current weight variance:', weight_var
-        print 'Len Weights: {0}, Len particles: {1}, Num particles: {2}'.format(len(self._weights),len(self._particles),self._no_particles)
-        print('Resampling!')
-        newParticles = list()
-        r = np.random.rand(1)*self._no_particles
-        c = self._weights[0]
-        i = 0
-        for m in range(self._no_particles):
-            U = r + m*self._no_particles
-            while U > c and i < len(self._weights) - 1:
-                i += 1
-                c += self._weights[i]
-            newParticles.append(self._particles[i])
-        self._particles = np.array(newParticles)
+    # def low_variance_resample(self):
+        # weight_var = np.var(self._weights, dtype=np.float64)
+        # print 'Current weight variance:', weight_var
+        # print 'Len Weights: {0}, Len particles: {1}, Num particles: {2}'.format(len(self._weights),len(self._particles),self._no_particles)
+        # print('Resampling!')
+        # newParticles = list()
+        # r = np.random.rand(1)*self._no_particles
+        # c = self._weights[0]
+        # i = 0
+        # for m in range(self._no_particles):
+            # U = r + m*self._no_particles
+            # while U > c and i < len(self._weights) - 1:
+                # i += 1
+                # c += self._weights[i]
+            # newParticles.append(self._particles[i])
+        # self._particles = np.array(newParticles)
     # def resample(self):
     #   if np.var(self._weights)<self._resample_theshold:
     #       self._particles = self._particles[np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)]
@@ -237,6 +235,7 @@ class particle_filter(object):
 
     def infer(self, sensor_reading, occupancy_grid):
         print 'infering'
+        self._iterations += 1
         #print sensor_reading
         partial_sense = partial(self._robot_model.sense, temp_particles=self._particles, sensor_reading=sensor_reading, occupancy_grid=occupancy_grid)
         pool = multiprocessing.Pool(processes=4)
@@ -251,13 +250,11 @@ class particle_filter(object):
         #print particle_sensor_readings
         self._weights = particle_sensor_readings/np.sum(particle_sensor_readings)
         print 'weights:',self._weights
-        # get new particles by sampling the new distibution of weights
-        self._particles = self._particles[np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)]
         
-        self._iterations += 1
-        # Resample if needed
-        if self._iterations % 10 == 0:
-            self.low_variance_resample()
+        # get new particles by sampling the new distibution of weights
+        if self._iterations % self._resample_period == 0:
+            print 'Resampling. Previous weight variance:',np.var(self._weights)
+            self._particles = self._particles[np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)]
 
 
 if __name__ == '__main__':
