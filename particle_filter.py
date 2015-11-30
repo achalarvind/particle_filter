@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 import json
 from functools import partial
 import multiprocessing 
-
+from sense import *
 
 def _pickle_method(method):
     func_name = method.im_func.__name__
@@ -141,19 +141,7 @@ class robot(object):
     def sense(self, particle_no, temp_particles, sensor_reading, occupancy_grid):
         robot_pose = temp_particles[particle_no,:]
 
-        sensor_pose = np.array([robot_pose[0] + 25*np.cos(robot_pose[2]), robot_pose[1] + 25*np.sin(robot_pose[2]), robot_pose[2]])
-
-        point_pose_x = np.array(np.multiply(self._max_laser_reading, np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
-        point_pose_y = np.array(np.multiply(self._max_laser_reading, np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
-   
-        point_pose_x = np.clip(np.array(((np.mat(point_pose_x).T)*self._linspace_array + sensor_pose[0])/10, dtype=int), 0, 799)
-        point_pose_y = np.clip(np.array(((np.mat(point_pose_y).T)*self._linspace_array + sensor_pose[1])/10, dtype=int), 0, 799)
-  
-        #mask = np.multiply(np.multiply(point_pose_x >=0, point_pose_x < 800), np.multiply(point_pose_y >= 0, point_pose_y < 800))
-        point_ranges = occupancy_grid[point_pose_x, point_pose_y]
-        point_ranges[:, -1] = 1
-
-        z_star = np.array([np.where(ranges > 0.01)[0][0] for ranges in point_ranges], dtype=int) 
+        z_star = genLidar(robot_pose, occupancy_grid, self._num_interp, self._max_laser_reading)
         z_star = (8183.0*z_star)/self._num_interp
 
         z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star*10-np.array(sensor_reading))**2)/self._z_sigma**2))
@@ -178,33 +166,6 @@ class robot(object):
         return np.sum(np.log(weights))
 
 
-
-
-
-
-
-
-
-
-"""       q = 1.0
-        z_hit = 0.95
-        z_rand = 0.05
-
-        #Go through the sweep (lookup table method)
-        point_pose = np.array(
-                        [sensor_pose[0] + np.multiply(np.array(sensor_reading), np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)),
-                         sensor_pose[1] + np.multiply(np.array(sensor_reading), np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0))])
-        point_pose = np.array(np.floor(point_pose/10), dtype=int)
-        good_range = np.multiply(np.multiply(point_pose[0, :] >= 0, point_pose[0, :] < 800), np.multiply(point_pose[1, :] >= 0, point_pose[1, :] < 800))
-   
-        good_data  = np.multiply(np.array(sensor_reading) < self._max_laser_reading, good_range)
-        scores = occupancy_grid[point_pose[0, good_data], point_pose[1, good_data]]
-        scores[scores < 0] = 0
-        q = np.prod(z_hit*(1-scores) + z_rand)
-        print q    
-        return q
-"""
-
 class particle_filter(object):
     def __init__(self, configuration_file, occupancy_grid):
         with open(configuration_file) as cfg_file:    
@@ -225,7 +186,7 @@ class particle_filter(object):
             self._particles = np.append(self._particles, particles, 0)
             num_good_particles = self._particles.shape[0]
 
-        self._particles = self._particles[:, :self._no_particles]
+        self._particles = self._particles[:self._no_particles, :]
 
 
         self._weights = [1.0/self._no_particles]*self._no_particles
