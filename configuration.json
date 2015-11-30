@@ -12,5 +12,5 @@
     "min_std_theta": 0.2, 
     "min_std_xy": 0.01, 
     "particle_count": 1000, 
-    "resample_threshold": 0.7
+    "resample_period": 10
 }

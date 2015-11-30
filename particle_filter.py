@@ -91,15 +91,24 @@ class localization_test(object):
             self.visualize()
 
     def visualize(self):
-        plt.clf()
+        # vis2 = cv2.cvtColor(self._occupancy_grid.T, cv2.COLOR_GRAY2BGR)
+        # cv2.imshow(vis2)
         plt.imshow(self._occupancy_grid.T, interpolation='nearest')
         plt.gray()
         plt.scatter(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, s=1, color=[1,0,0], alpha=0.5)
         #plt.quiver(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, np.cos(self._filter._particles[:,2]), np.sin(self._filter._particles[:,2]),
         #   units='xy', scale=10., zorder=3, color='blue',
         #zs   width=0.007, headwidth=3., headlength=4.)
-        plt.axis([0, 800, 0, 800])
+        max_weight_index=self._filter._weights.index(max(self._filter._weights))
+        print "max",max_weight_index
+        print "max_weight",self._filter._particles[max_weight_index,0]/10, self._filter._particles[max_weight_index,1]/10
+        # plt.plot(t, t, 'r--', t, t**2, 'bs', t, t**3, 'g^')
+        plt.scatter(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, s=2, color=[1,0,0], alpha=0.5)
+        plt.scatter(self._filter._points_x, self._filter._points_y, s=1, color=[0,0,1], alpha=0.5)
+        plt.scatter([self._filter._particles[max_weight_index,0]/10], [self._filter._particles[max_weight_index,1]/10], s=20, color=[0,1,0], alpha=0.8) 
+
         plt.draw()
+        plt.clf()
         if create_movies:
             writer.grab_frame()
 
@@ -166,13 +175,20 @@ class robot(object):
         
         z_star = c_genLidar(robot_pose, occupancy_grid, self._num_interp, self._max_laser_reading)
 
+        sensor_pose = np.array([robot_pose[0] + 25*np.cos(robot_pose[2]), robot_pose[1] + 25*np.sin(robot_pose[2]), robot_pose[2]])
+
+        points_sensed=np.zeros([180,2])
+        points_sensed[:,0] = np.array(sensor_pose[0] + np.multiply(z_star, np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
+        points_sensed[:,1] = np.array(sensor_pose[1] + np.multiply(z_star, np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
+
+
         z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star-np.array(sensor_reading))**2)/self._z_sigma**2))
         z_short = np.full_like(z_star, 0, dtype=float) #not implimented atm
         z_max = np.array(np.array(sensor_reading) == self._max_laser_reading, dtype=int)
         z_rand = np.full_like(z_star, 1.0/self._max_laser_reading, dtype=float)
 
         weights = np.array(self._z_hit*z_hit + self._z_short*z_short + self._z_max*z_max + self._z_rand*z_rand, dtype=float)
-        return np.sum(weights)
+        return [np.sum(np.log(weights)), points_sensed]
 
 class particle_filter(object):
     def __init__(self, configuration_file, occupancy_grid):
@@ -183,6 +199,8 @@ class particle_filter(object):
         self._resample_period = configuration['resample_period']
         self._iterations = 0
 
+        self._points_x=[]
+        self._points_y=[]
         #Gotta get them all in the good areas
         
         num_good_particles = 0
@@ -226,18 +244,31 @@ class particle_filter(object):
         self._iterations += 1
         #print sensor_reading
         partial_sense = partial(self._robot_model.sense, temp_particles=self._particles, sensor_reading=sensor_reading, occupancy_grid=occupancy_grid)
-        pool = multiprocessing.Pool(processes=4)
-        particle_sensor_readings = list(pool.map(partial_sense, range(self._particles.shape[0])))
+        pool = multiprocessing.Pool(processes=8)
+        print self._particles.shape
+        result=list(pool.map(partial_sense, range(self._particles.shape[0])))
         pool.close()
         pool.join()
+
+        particle_sensor_readings = [x[0] for x in result]
+        points_sensed=list()
+        for x in result:
+            points_sensed.extend(x[1])
+        self._points_x=[point[0] for point in points_sensed]
+        self._points_y=[point[1] for point in points_sensed]
+
+        print "max"
+        print max(self._points_x)        
+        print max(self._points_y)
+
         #get sensor readings for each robot pose
         # particle_sensor_readings = np.apply_along_axis(self._robot_model.sense, 1, self._particles, sensor_reading, occupancy_grid) 
         # subtract the current sensor reading from the sensor readings of the particles, take the L2 norm and readjust weights
            
         #particle_sensor_readings = particle_sensor_readings - np.min(particle_sensor_readings)
         #print particle_sensor_readings
-        self._weights = particle_sensor_readings/np.sum(particle_sensor_readings)
-        print 'weights:',self._weights
+        self._weights = list(particle_sensor_readings/np.sum(particle_sensor_readings))
+        # print 'weights:',self._weights
         
         # get new particles by sampling the new distibution of weights
         if self._iterations % self._resample_period == 0:
