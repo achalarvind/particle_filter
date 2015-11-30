@@ -83,7 +83,12 @@ class localization_test(object):
                     self._previous_robot_pose = robot_pose
                     odometry = np.array([0.0, 0.0, 0.0])
                 else:
-                    odometry = np.subtract(self._previous_robot_pose, robot_pose)
+                    dx,dy,dtheta = np.subtract(self._previous_robot_pose, robot_pose)
+                    # Transform odometry data from differences to sequential rot1, trans, rot2 motions
+                    trans = np.sqrt(dx**2 + dy**2)
+                    rot1 = np.arctan2(dy,dx) - self._previous_robot_pose[2]
+                    rot2 = dtheta - rot1
+                    odometry = np.array([trans,rot1,rot2])
                     self._previous_robot_pose = robot_pose
                 print 'odometry:', odometry
                 self._filter.propogate(odometry)
@@ -134,11 +139,7 @@ class robot(object):
         Note2: assumes robot pose is a 3x1 numpy array <x, y, heading>
         http://www.mrpt.org/tutorials/programming/odometry-and-motion-models/probabilistic_motion_models/"""
         num_particles = particles.shape[0]
-        # Transform odometry data from differences to sequential rot1, trans, rot2 motions
-        dx,dy,dtheta = odometry
-        trans = np.sqrt(dx**2 + dy**2)
-        rot1 = np.arctan2(dy,dx) - dtheta
-        rot2 = dtheta - rot1
+        trans,rot1,rot2 = odometry
         # Compute standard deviations of measurements
         sigma_trans = self._alpha3*trans + self._alpha4*(np.abs(rot1)+np.abs(rot2))
         sigma_rot1 = self._alpha1*np.abs(rot1) + self._alpha2*trans
