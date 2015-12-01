@@ -178,7 +178,7 @@ class robot(object):
 
             x_pos = int(sensor_pose[0]/10)
             y_pos = int(sensor_pose[1]/10)
-            if (x_pos, y_pos) in self._z_dic:
+            if (x_pos, y_pos) in self._z_dic and abs(occupancy_grid[x_pos,y_pos])<0.05:
                 z_star = self._z_dic[x_pos, y_pos]
                 z_star = z_star[np.mod(np.array(range(int(sensor_pose[2]*180.0/np.pi)-90, int(sensor_pose[2]*180/np.pi)+90)),360)]
                     
@@ -259,7 +259,7 @@ class particle_filter(object):
         #print particle_sensor_readings
         #self._weights = particle_sensor_readings/np.sum(particle_sensor_readings)
         # print 'weights:',self._weights
-        self._weights = self._robot_model.sense(self._particles, sensor_reading, occupancy_grid)
+        self._weights *= self._robot_model.sense(self._particles, sensor_reading, occupancy_grid)
         self._weights = self._weights / np.sum(self._weights)
         # get new particles by sampling the new distibution of weights
         if self._iterations % self._resample_period == 0 and self.started_moving:
