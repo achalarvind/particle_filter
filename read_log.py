@@ -13,7 +13,7 @@ def read_map(environment_file):
 			occupancy_grid=np.empty(map_size)
 			read_map=True
 		elif read_map==True:
-			occupancy_grid[row]=[float(value) for value in line.split(' ') if value != '\n']
+			occupancy_grid[row]=list(reversed([float(value) for value in line.split(' ') if value != '\n']))
 			row+=1
 	return [robot_specification, occupancy_grid]
 
