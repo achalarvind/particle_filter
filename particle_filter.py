@@ -84,6 +84,8 @@ class localization_test(object):
                     odometry = np.array([0.0, 0.0, 0.0])
                 else:
                     dx,dy,dtheta = np.subtract(robot_pose, self._previous_robot_pose)
+                    if dx != 0 and dy != 0:
+                        self._filter._started_moving = True
                     # Transform odometry data from differences to sequential rot1, trans, rot2 motions
                     trans = np.sqrt(dx**2 + dy**2)
                     rot1 = np.arctan2(dy,dx) - self._previous_robot_pose[2]
@@ -195,6 +197,7 @@ class particle_filter(object):
         self._no_particles = configuration['particle_count']
         self._resample_period = configuration['resample_period']
         self._iterations = 0
+        self.started_moving = False
 
         #Gotta get them all in the good areas
         
@@ -236,7 +239,8 @@ class particle_filter(object):
 
     def infer(self, sensor_reading, occupancy_grid):
         print 'infering'
-        self._iterations += 1
+        if self.started_moving:
+            self._iterations += 1
         #print sensor_reading
         partial_sense = partial(self._robot_model.sense, temp_particles=self._particles, sensor_reading=sensor_reading, occupancy_grid=occupancy_grid)
         pool = multiprocessing.Pool(processes=4)
