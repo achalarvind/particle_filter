@@ -210,11 +210,11 @@ class robot(object):
         for i,particle in enumerate(particles):
             sensor_pose = np.array([particle[0] + 25*np.cos(particle[2]), particle[1] + 25*np.sin(particle[2]), particle[2]])
 
-            x_pos = 799-int(sensor_pose[0]/10)
+            x_pos = int(sensor_pose[0]/10)
             y_pos = int(sensor_pose[1]/10)
             if (x_pos, y_pos) in self._z_dic and abs(occupancy_grid[x_pos,y_pos])<0.005:
                 z_star = self._z_dic[x_pos, y_pos]
-                z_star = z_star[np.mod(np.array(range(int(sensor_pose[2]*180.0/np.pi)+90, int(sensor_pose[2]*180/np.pi)+270)),360)]
+                z_star = z_star[np.mod(np.array(range(int(sensor_pose[2]*180.0/np.pi)-90, int(sensor_pose[2]*180/np.pi)+90)),360)]
                     
                 z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star-np.array(sensor_reading))**2)/self._z_sigma**2))
                 z_short = np.full_like(z_star, 0, dtype=float) #not implimented atm
