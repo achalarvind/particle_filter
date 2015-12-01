@@ -6,7 +6,7 @@ import json
 from functools import partial
 import multiprocessing 
 
-create_movies = True
+create_movies = False
 import matplotlib
 if create_movies:
     matplotlib.use('Agg')
@@ -83,7 +83,7 @@ class localization_test(object):
                     self._previous_robot_pose = robot_pose
                     odometry = np.array([0.0, 0.0, 0.0])
                 else:
-                    dx,dy,dtheta = np.subtract(self._previous_robot_pose, robot_pose)
+                    dx,dy,dtheta = np.subtract(robot_pose, self._previous_robot_pose)
                     # Transform odometry data from differences to sequential rot1, trans, rot2 motions
                     trans = np.sqrt(dx**2 + dy**2)
                     rot1 = np.arctan2(dy,dx) - self._previous_robot_pose[2]
