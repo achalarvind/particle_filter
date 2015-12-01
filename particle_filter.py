@@ -250,12 +250,15 @@ class particle_filter(object):
         #particle_sensor_readings = particle_sensor_readings - np.min(particle_sensor_readings)
         #print particle_sensor_readings
         self._weights = particle_sensor_readings/np.sum(particle_sensor_readings)
-        print 'weights:',self._weights
+        # print 'weights:',self._weights
         
         # get new particles by sampling the new distibution of weights
         if self._iterations % self._resample_period == 0:
             print 'Resampling. Previous weight variance:',np.var(self._weights)
-            self._particles = self._particles[np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)]
+            indices = np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)
+            self._weights = self._weights[indices]
+            self._weights = self._weights/sum(self._weights)
+            self._particles = self._particles[indices]
 
 
 if __name__ == '__main__':
