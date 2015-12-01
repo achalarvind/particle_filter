@@ -210,11 +210,11 @@ class robot(object):
         for i,particle in enumerate(particles):
             sensor_pose = np.array([particle[0] + 25*np.cos(particle[2]), particle[1] + 25*np.sin(particle[2]), particle[2]])
 
-            x_pos = int(sensor_pose[0]/10)
+            x_pos = 799-int(sensor_pose[0]/10)
             y_pos = int(sensor_pose[1]/10)
-            if (x_pos, y_pos) in self._z_dic and abs(occupancy_grid[x_pos,y_pos])<0.05:
+            if (x_pos, y_pos) in self._z_dic and abs(occupancy_grid[x_pos,y_pos])<0.005:
                 z_star = self._z_dic[x_pos, y_pos]
-                z_star = z_star[np.mod(np.array(range(int(sensor_pose[2]*180.0/np.pi)-90, int(sensor_pose[2]*180/np.pi)+90)),360)]
+                z_star = z_star[np.mod(np.array(range(int(sensor_pose[2]*180.0/np.pi)+90, int(sensor_pose[2]*180/np.pi)+270)),360)]
                     
                 z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star-np.array(sensor_reading))**2)/self._z_sigma**2))
                 z_short = np.full_like(z_star, 0, dtype=float) #not implimented atm
@@ -224,7 +224,7 @@ class robot(object):
                 weights[i] = np.sum(np.array(self._z_hit*z_hit + self._z_short*z_short + self._z_max*z_max + self._z_rand*z_rand, dtype=float))
             else:
                 continue
-        return weights
+        return weights/weights.sum()
 
 
 class particle_filter(object):
@@ -251,7 +251,8 @@ class particle_filter(object):
 
         self._particles = self._particles[:self._no_particles, :]
         self._weights = [1.0/self._no_particles]*self._no_particles
-        
+        # self._weights = self._weights / np.sum(self._weights)
+    
     # def low_variance_resample(self):
         # weight_var = np.var(self._weights, dtype=np.float64)
         # print 'Current weight variance:', weight_var
@@ -292,16 +293,16 @@ class particle_filter(object):
         #particle_sensor_readings = particle_sensor_readings - np.min(particle_sensor_readings)
         #print particle_sensor_readings
         #self._weights = particle_sensor_readings/np.sum(particle_sensor_readings)
-        # print 'weights:',self._weights
         self._weights *= self._robot_model.sense(self._particles, sensor_reading, occupancy_grid)
         self._weights = self._weights / np.sum(self._weights)
         # get new particles by sampling the new distibution of weights
+        print 'weights:',self._weights, 'sum', np.sum(self._weights)
+
         if self._iterations % self._resample_period == 0 and self.started_moving:
             print 'Resampling. Previous weight variance:',np.var(self._weights)
             indices = np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)
-            self._weights = self._weights[indices]
-            self._weights = self._weights/np.sum(self._weights)
-            self._particles = self._particles[indices]
+            self._weights = [1.0/self._no_particles]*self._no_particles
+            self._particles = self._particles[indices,:]
 
 
 if __name__ == '__main__':
