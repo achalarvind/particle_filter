@@ -6,7 +6,7 @@ import json
 from functools import partial
 import multiprocessing 
 import cPickle as pickle
-
+import cv2
 
 create_movies = False
 import matplotlib
@@ -100,17 +100,45 @@ class localization_test(object):
             self.visualize()
 
     def visualize(self):
-        plt.clf()
-        plt.imshow(self._occupancy_grid.T, interpolation='nearest')
-        plt.gray()
-        plt.scatter(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, s=1, color=[1,0,0], alpha=0.5)
+        img = np.zeros([800, 800, 3])
+        img[:, :, 0] = self._occupancy_grid
+        img[:, :, 1] = self._occupancy_grid
+        img[:, :, 2] = self._occupancy_grid
+        for pnt in self._filter._robot_model._pnt_red:
+            pnt = np.clip(pnt, 0, 7999)
+            img[int(pnt[0]/10), int(pnt[1]/10), :] = np.array([1, 0, 0]) 
+
+        for pnt in self._filter._robot_model._pnt_grn:
+            pnt = np.clip(pnt, 0, 7999)
+            img[int(pnt[0]/10), int(pnt[1]/10), :] = np.array([0, 1, 0]) 
+        
+        for pnt in self._filter._robot_model._pnt_blu:
+            pnt = np.clip(pnt, 0, 7999)
+            img[int(pnt[0]/10), int(pnt[1]/10), :] = np.array([0, 0, 1])
+
+        for part in self._filter._particles:
+            part = np.clip(part, 0, 7999)
+            cv2.circle(img, (int(part[1]/10), int(part[0]/10)), 3, [1, 0, 1])
+
+ 
+        self._filter._robot_model._pnt_grn = np.empty([0, 2])
+        self._filter._robot_model._pnt_blu = np.empty([0, 2])
+        self._filter._robot_model._pnt_red = np.empty([0, 2])
+
+        cv2.imshow("Output Plot", img)
+        cv2.waitKey(1)
+
+#        plt.clf()
+#        plt.imshow(self._occupancy_grid.T, interpolation='nearest')
+#        plt.gray()
+#        plt.scatter(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, s=1, color=[1,0,0], alpha=0.5)
         #plt.quiver(self._filter._particles[:,0]/10, self._filter._particles[:,1]/10, np.cos(self._filter._particles[:,2]), np.sin(self._filter._particles[:,2]),
         #   units='xy', scale=10., zorder=3, color='blue',
         #zs   width=0.007, headwidth=3., headlength=4.)
-        plt.axis([0, 800, 0, 800])
-        plt.draw()
-        if create_movies:
-            writer.grab_frame()
+#        plt.axis([0, 800, 0, 800])
+#        plt.draw()
+#        if create_movies:
+#            writer.grab_frame()
 
 class robot(object):
     def __init__(self, configuration_file):
@@ -130,8 +158,14 @@ class robot(object):
         
         self._z_hit_norm = 1/(np.sum((1/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(range(-100, 101))**2)/self._z_sigma**2)))
 
-        self._num_interp = 900
-        self._linspace_array = np.mat(np.linspace(0, 1, self._num_interp))
+#        self._num_interp = 900
+#        self._linspace_array = np.mat(np.linspace(0, 1, self._num_interp))
+
+        self._pnt_grn = np.empty([0, 2])
+        self._pnt_blu = np.empty([0, 2])
+        self._pnt_red = np.empty([0, 2])
+
+
 
         self._z_dic = {}
         with open('point_dic.dic', 'rb') as fp:
