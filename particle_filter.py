@@ -5,6 +5,8 @@ import read_log
 import json
 from functools import partial
 import multiprocessing 
+import cPickle as pickle
+
 
 create_movies = False
 import matplotlib
@@ -131,6 +133,11 @@ class robot(object):
         self._num_interp = 900
         self._linspace_array = np.mat(np.linspace(0, 1, self._num_interp))
 
+        self._z_dic = {}
+        with open('point_dic.dic', 'rb') as fp:
+            print "Starting dic read"
+            self._z_dic = pickle.load(fp)
+            print "Read in dict file!"
 
         self._min_std_xy = configuration['min_std_xy']
         self._min_std_theta = configuration['min_std_theta']
@@ -164,31 +171,27 @@ class robot(object):
         dtheta.shape = (num_particles,1)
         return particles + np.concatenate((dx,dy,dtheta),axis=1)
 
-    def sense(self, particle_no, temp_particles, sensor_reading, occupancy_grid):
-        robot_pose = temp_particles[particle_no,:]
+    def sense(self, particles, sensor_reading, occupancy_grid):
+        weights = np.zeros(particles.shape[0])
+        for i,particle in enumerate(particles):
+            sensor_pose = np.array([particle[0] + 25*np.cos(particle[2]), particle[1] + 25*np.sin(particle[2]), particle[2]])
 
-        sensor_pose = np.array([robot_pose[0] + 25*np.cos(robot_pose[2]), robot_pose[1] + 25*np.sin(robot_pose[2]), robot_pose[2]])
+            x_pos = int(sensor_pose[0]/10)
+            y_pos = int(sensor_pose[1]/10)
+            if (x_pos, y_pos) in self._z_dic:
+                z_star = self._z_dic[x_pos, y_pos]
+                z_star = z_star[np.mod(np.array(range(int(sensor_pose[2]*180.0/np.pi)-90, int(sensor_pose[2]*180/np.pi)+90)),360)]
+                    
+                z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star-np.array(sensor_reading))**2)/self._z_sigma**2))
+                z_short = np.full_like(z_star, 0, dtype=float) #not implimented atm
+                z_max = np.array(np.array(sensor_reading) == self._max_laser_reading, dtype=int)
+                z_rand = np.full_like(z_star, 1.0/self._max_laser_reading, dtype=float)
 
-        point_pose_x = np.array(np.multiply(self._max_laser_reading, np.cos(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
-        point_pose_y = np.array(np.multiply(self._max_laser_reading, np.sin(sensor_pose[2] + np.pi*(np.array(range(0,180))-90.0)/180.0)))
-   
-        point_pose_x = np.clip(np.array(((np.mat(point_pose_x).T)*self._linspace_array + sensor_pose[0])/10, dtype=int), 0, 799)
-        point_pose_y = np.clip(np.array(((np.mat(point_pose_y).T)*self._linspace_array + sensor_pose[1])/10, dtype=int), 0, 799)
-  
-        #mask = np.multiply(np.multiply(point_pose_x >=0, point_pose_x < 800), np.multiply(point_pose_y >= 0, point_pose_y < 800))
-        point_ranges = occupancy_grid[point_pose_x, point_pose_y]
-        point_ranges[:, -1] = 1
+                weights[i] = np.sum(np.array(self._z_hit*z_hit + self._z_short*z_short + self._z_max*z_max + self._z_rand*z_rand, dtype=float))
+            else:
+                continue
+        return weights
 
-        z_star = np.array([np.where(ranges > 0.01)[0][0] for ranges in point_ranges], dtype=int) 
-        z_star = (self._max_laser_reading*z_star)/self._num_interp
-
-        z_hit = np.array((self._z_hit_norm/np.sqrt(2*np.pi*self._z_sigma**2))*np.exp(-0.5*(np.array(z_star-np.array(sensor_reading))**2)/self._z_sigma**2))
-        z_short = np.full_like(z_star, 0, dtype=float) #not implimented atm
-        z_max = np.array(np.array(sensor_reading) == self._max_laser_reading, dtype=int)
-        z_rand = np.full_like(z_star, 1.0/self._max_laser_reading, dtype=float)
-
-        weights = np.array(self._z_hit*z_hit + self._z_short*z_short + self._z_max*z_max + self._z_rand*z_rand, dtype=float)
-        return np.sum(weights)
 
 class particle_filter(object):
     def __init__(self, configuration_file, occupancy_grid):
@@ -243,26 +246,27 @@ class particle_filter(object):
         if self.started_moving:
             self._iterations += 1
         #print sensor_reading
-        partial_sense = partial(self._robot_model.sense, temp_particles=self._particles, sensor_reading=sensor_reading, occupancy_grid=occupancy_grid)
-        pool = multiprocessing.Pool(processes=4)
-        particle_sensor_readings = list(pool.map(partial_sense, range(self._particles.shape[0])))
-        pool.close()
-        pool.join()
+        #partial_sense = partial(self._robot_model.sense, temp_particles=self._particles, sensor_reading=sensor_reading, occupancy_grid=occupancy_grid)
+        #pool = multiprocessing.Pool(processes=4)
+        #particle_sensor_readings = list(pool.map(partial_sense, range(self._particles.shape[0])))
+        #pool.close()
+        #pool.join()
         #get sensor readings for each robot pose
-        # particle_sensor_readings = np.apply_along_axis(self._robot_model.sense, 1, self._particles, sensor_reading, occupancy_grid) 
+        #particle_sensor_readings = np.apply_along_axis(self._robot_model.partial_sense, 1, self._particles, sensor_reading, occupancy_grid) 
         # subtract the current sensor reading from the sensor readings of the particles, take the L2 norm and readjust weights
            
         #particle_sensor_readings = particle_sensor_readings - np.min(particle_sensor_readings)
         #print particle_sensor_readings
-        self._weights = particle_sensor_readings/np.sum(particle_sensor_readings)
+        #self._weights = particle_sensor_readings/np.sum(particle_sensor_readings)
         # print 'weights:',self._weights
-        
+        self._weights = self._robot_model.sense(self._particles, sensor_reading, occupancy_grid)
+        self._weights = self._weights / np.sum(self._weights)
         # get new particles by sampling the new distibution of weights
         if self._iterations % self._resample_period == 0 and self.started_moving:
             print 'Resampling. Previous weight variance:',np.var(self._weights)
             indices = np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)
             self._weights = self._weights[indices]
-            self._weights = self._weights/sum(self._weights)
+            self._weights = self._weights/np.sum(self._weights)
             self._particles = self._particles[indices]
 
 
