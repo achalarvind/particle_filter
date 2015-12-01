@@ -80,19 +80,20 @@ class localization_test(object):
             elif parsed_data[0] == 'O':
                 [robot_pose]=parsed_data[1:]
                 if self._previous_robot_pose == None:
-                    self._previous_robot_pose = robot_pose
                     odometry = np.array([0.0, 0.0, 0.0])
+                    dx,dy,dtheta = odometry
                 else:
                     dx,dy,dtheta = np.subtract(robot_pose, self._previous_robot_pose)
-                    if dx != 0 and dy != 0:
-                        self._filter._started_moving = True
+                    if not self._filter.started_moving and (dx != 0 or dy != 0):
+                        print 'We started moving! dx: {0}, dy: {1}'.format(dx,dy)
+                        self._filter.started_moving = True
                     # Transform odometry data from differences to sequential rot1, trans, rot2 motions
-                    trans = np.sqrt(dx**2 + dy**2)
-                    rot1 = np.arctan2(dy,dx) - self._previous_robot_pose[2]
-                    rot2 = dtheta - rot1
-                    odometry = np.array([trans,rot1,rot2])
-                    self._previous_robot_pose = robot_pose
-                print 'odometry:', odometry
+                self._previous_robot_pose = robot_pose
+                trans = np.sqrt(dx**2 + dy**2)
+                rot1 = np.arctan2(dy,dx) - self._previous_robot_pose[2]
+                rot2 = dtheta - rot1
+                odometry = np.array([trans,rot1,rot2])
+                print 'odometry:', [dx,dy,dtheta]
                 self._filter.propogate(odometry)
             self.visualize()
 
@@ -257,7 +258,7 @@ class particle_filter(object):
         # print 'weights:',self._weights
         
         # get new particles by sampling the new distibution of weights
-        if self._iterations % self._resample_period == 0:
+        if self._iterations % self._resample_period == 0 and self.started_moving:
             print 'Resampling. Previous weight variance:',np.var(self._weights)
             indices = np.random.choice(self._particles.shape[0], self._no_particles, p = self._weights, replace = True)
             self._weights = self._weights[indices]
